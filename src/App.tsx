@@ -37,13 +37,13 @@ import { User, Product, CartItem } from './types';
 import { Navbar } from './components/Navbar';
 import { ProductCard } from './components/ProductCard';
 import { Footer } from './components/Footer';
+import { CustomModal } from './components/CustomModal';
 
 import logoImg from './assets/images/logo.png';
 import gifImg from './assets/images/delhuerto.gif';
 import farmerImg from './assets/images/farmer.png';
 import familyImg from './assets/images/family.png';
 
-// --- Main App ---
 
 
 export default function App() {
@@ -55,7 +55,6 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('Todos');
   const [orderSuccess, setOrderSuccess] = useState(false);
@@ -63,6 +62,56 @@ export default function App() {
   const [userOrders, setUserOrders] = useState<any[]>([]);
   const [dashboardView, setDashboardView] = useState<'products' | 'profile' | 'resume'>('products');
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [producerCache, setProducerCache] = useState<Record<string, User>>({});
+
+  // Modal State
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    type: 'alert' | 'confirm' | 'success' | 'error';
+    onConfirm: () => void;
+    onCancel?: () => void;
+  }>({
+    isOpen: false,
+    message: '',
+    type: 'alert',
+    onConfirm: () => { }
+  });
+
+  const showAlert = (message: string, type: 'alert' | 'success' | 'error' = 'alert', title?: string) => {
+    return new Promise<void>((resolve) => {
+      setModalConfig({
+        isOpen: true,
+        title: title || (type === 'error' ? 'Error' : type === 'success' ? 'Éxito' : 'Atención'),
+        message,
+        type,
+        onConfirm: () => {
+          setModalConfig(prev => ({ ...prev, isOpen: false }));
+          resolve();
+        }
+      });
+    });
+  };
+
+  const showConfirm = (message: string, title: string = 'Confirmar') => {
+    return new Promise<boolean>((resolve) => {
+      setModalConfig({
+        isOpen: true,
+        title,
+        message,
+        type: 'confirm',
+        onConfirm: () => {
+          setModalConfig(prev => ({ ...prev, isOpen: false }));
+          resolve(true);
+        },
+        onCancel: () => {
+          setModalConfig(prev => ({ ...prev, isOpen: false }));
+          resolve(false);
+        }
+      });
+    });
+  };
 
   // Profile Form States
   const [editProfileName, setEditProfileName] = useState('');
@@ -86,8 +135,8 @@ export default function App() {
   const [authPassword, setAuthPassword] = useState('');
   const [authName, setAuthName] = useState('');
 
-  // URL Routing & Route Guard hook
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     let path = '/';
     switch (view) {
       case 'market': path = '/catalogo'; break;
@@ -97,7 +146,7 @@ export default function App() {
       case 'onboarding': path = '/onboarding'; break;
       case 'orders': path = '/mis-pedidos'; break;
       case 'product': path = selectedProduct ? `/producto/${selectedProduct.id}` : '/catalogo'; break;
-      case 'producer-profile': path = window.location.pathname; break;
+      case 'producer-profile': path = selectedProducerId ? `/productor/${selectedProducerId}` : '/catalogo'; break;
       case 'landing': default: path = '/'; break;
     }
 
@@ -105,21 +154,32 @@ export default function App() {
     if (view === 'dashboard' && authLoaded) {
       if (!user || user.role !== 'producer') {
         setView('market');
-        window.history.pushState({}, '', '/catalogo');
         return;
       }
     }
 
-    // Don't modify path for producer profile to keep it simple or use ?producer=id
-    if (view !== 'producer-profile') {
-      if (window.location.pathname !== path) {
-        window.history.pushState({}, '', path);
-      }
-    }
-  }, [view, user, authLoaded, selectedProduct]);
+    if (window.location.pathname !== path) {
+       window.history.pushState({ view, selectedProducerId, selectedProduct }, '', path);
+     }
+     
+     // Always scroll to top on view change
+     if (typeof window !== 'undefined') {
+       window.scrollTo(0, 0);
+     }
+   }, [view, user, authLoaded, selectedProduct, selectedProducerId]);
 
   useEffect(() => {
-    const handlePopState = () => {
+    if (typeof window === 'undefined') return;
+    
+    const handlePopState = (event: PopStateEvent) => {
+      const state = event.state;
+      if (state) {
+        if (state.view) setView(state.view);
+        if (state.selectedProducerId) setSelectedProducerId(state.selectedProducerId);
+        if (state.selectedProduct) setSelectedProduct(state.selectedProduct);
+        return;
+      }
+
       const p = window.location.pathname;
       if (p === '/catalogo') setView('market');
       else if (p === '/login') setView('login');
@@ -127,6 +187,13 @@ export default function App() {
       else if (p === '/onboarding') setView('onboarding');
       else if (p === '/mis-pedidos') setView('orders');
       else if (p.startsWith('/producto/')) setView('product');
+      else if (p.startsWith('/productor/')) {
+        const id = p.split('/').pop();
+        if (id) {
+          setSelectedProducerId(id);
+          setView('producer-profile');
+        }
+      }
       else if (p === '/panel-productor') {
         if (authLoaded && (!user || user.role !== 'producer')) setView('market');
         else setView('dashboard');
@@ -135,13 +202,58 @@ export default function App() {
     };
     window.addEventListener('popstate', handlePopState);
 
-    // Initial load route
-    handlePopState();
-
     return () => window.removeEventListener('popstate', handlePopState);
   }, [authLoaded, user]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    // Fetch info for all unique producers in the current product list
+    const uniqueProducerIds = Array.from(new Set(products.map(p => p.producer_id.toString())));
+    const idsToFetch = uniqueProducerIds.filter(id => !producerCache[id]);
+
+    if (idsToFetch.length > 0) {
+      idsToFetch.forEach(async (id) => {
+        try {
+          const docSnap = await getDoc(doc(db, 'users', id));
+          if (docSnap.exists()) {
+            setProducerCache(prev => ({
+              ...prev,
+              [id]: { id: docSnap.id, ...docSnap.data() } as User
+            }));
+          }
+        } catch (e) {
+          console.error(`Error fetching producer ${id}`, e);
+        }
+      });
+    }
+  }, [products]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if ((view === 'product' && selectedProduct) || (view === 'producer-profile' && selectedProducerId)) {
+      const producerId = (view === 'product' ? selectedProduct?.producer_id : selectedProducerId)?.toString();
+      if (producerId && !producerCache[producerId]) {
+        const fetchProducer = async () => {
+          try {
+            const docSnap = await getDoc(doc(db, 'users', producerId));
+            if (docSnap.exists()) {
+              setProducerCache(prev => ({
+                ...prev,
+                [producerId]: { id: docSnap.id, ...docSnap.data() } as User
+              }));
+            }
+          } catch (e) {
+            console.error("Error fetching producer for view", e);
+          }
+        };
+        fetchProducer();
+      }
+    }
+  }, [view, selectedProduct, selectedProducerId, producerCache]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
     if (view === 'orders' && user) {
       const fetchOrders = async () => {
         try {
@@ -161,16 +273,9 @@ export default function App() {
   }, [view, user]);
 
   useEffect(() => {
-    fetchProducts();
-
-    const handleScroll = () => {
-      const isScrolled = window.scrollY > 50;
-      setScrolled(isScrolled);
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-
-    // Firebase Auth Listener
+    if (typeof window === 'undefined') return;
+    
+    // Escuchar cambios en la autenticación
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         try {
@@ -198,20 +303,22 @@ export default function App() {
           }
         } catch (e) {
           console.error("Error fetching user role", e);
-          const localRole = localStorage.getItem(`role_${firebaseUser.uid}`) as 'producer' | 'consumer' | null;
-          setUser({
-            id: firebaseUser.uid,
-            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuario',
-            email: firebaseUser.email || '',
-            role: localRole || 'consumer',
-            location: 'Bogotá'
-          });
         }
       } else {
         setUser(null);
       }
       setAuthLoaded(true);
+      
+      // Siempre refrescar productos al cambiar el estado de auth
+      fetchProducts();
     });
+
+    // Manejar scroll de la navbar
+    const handleScroll = () => {
+      const isScrolled = window.scrollY > 50;
+      setScrolled(isScrolled);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
 
     return () => {
       unsubscribe();
@@ -220,6 +327,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     if (user) {
       setEditProfileName(user.name || '');
       setEditProfileLocation(user.location || '');
@@ -253,13 +361,23 @@ export default function App() {
         setView(localRole === 'producer' ? 'dashboard' : 'market');
       }
     } catch (error: any) {
-      alert('Error al entrar: ' + error.message);
+      showAlert('Error al entrar: ' + error.message, 'error');
     }
   };
 
   const handleGoogleLogin = async () => {
     try {
-      const result = await signInWithPopup(auth, googleProvider);
+      let result;
+      try {
+        result = await signInWithPopup(auth, googleProvider);
+      } catch (popupErr: any) {
+        // Manejar el error de COOP o ventanas bloqueadas
+        if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/popup-closed-by-user' || popupErr.message.includes('Cross-Origin-Opener-Policy')) {
+          console.warn("Popup blocked or COOP error, this is common in some environments. Firebase will handle the window.");
+        }
+        throw popupErr;
+      }
+
       const userRef = doc(db, 'users', result.user.uid);
       try {
         const userDoc = await getDoc(userRef);
@@ -281,7 +399,7 @@ export default function App() {
         setView(localRole === 'producer' ? 'dashboard' : 'market');
       }
     } catch (error: any) {
-      alert('Error con Google: ' + error.message);
+      showAlert('Error con Google: ' + error.message, 'error');
     }
   };
 
@@ -321,7 +439,7 @@ export default function App() {
       const url = await getDownloadURL(storageRef);
       setNpImage(url);
     } catch (error: any) {
-      alert('Error al subir la imagen: ' + error.message);
+      showAlert('Error al subir la imagen: ' + error.message, 'error');
     } finally {
       setIsUploadingImage(false);
     }
@@ -333,17 +451,18 @@ export default function App() {
       await updateDoc(productRef, { isActive: !(currentStatus ?? true) });
       fetchProducts();
     } catch (e: any) {
-      alert("Error actualizando producto: " + e.message);
+      showAlert("Error actualizando producto: " + e.message, 'error');
     }
   };
 
   const handleDeleteProduct = async (productId: string | number) => {
-    if (!window.confirm("¿Seguro que deseas eliminar definitivamente este producto?")) return;
+    const confirmed = await showConfirm("¿Seguro que deseas eliminar definitivamente este producto?");
+    if (!confirmed) return;
     try {
       await deleteDoc(doc(db, 'products', productId.toString()));
       fetchProducts();
     } catch (e: any) {
-      alert("Error al eliminar producto: " + e.message);
+      showAlert("Error al eliminar producto: " + e.message, 'error');
     }
   };
 
@@ -384,7 +503,7 @@ export default function App() {
       setNpName(''); setNpPrice(''); setNpStock(''); setNpDesc(''); setNpImage('');
       fetchProducts(); // Refresh list
     } catch (e: any) {
-      alert("Error al guardar en Firebase: " + e.message);
+      showAlert("Error al guardar en Firebase: " + e.message, 'error');
     }
   };
 
@@ -411,9 +530,9 @@ export default function App() {
         description: editProfileDesc
       });
       setUser({ ...user, name: editProfileName, location: editProfileLocation, description: editProfileDesc });
-      alert("Perfil actualizado correctamente");
+      showAlert("Perfil actualizado correctamente", "success");
     } catch (error: any) {
-      alert("Error al actualizar perfil: " + error.message);
+      showAlert("Error al actualizar perfil: " + error.message, 'error');
     }
   };
 
@@ -438,7 +557,7 @@ export default function App() {
 
       setView('market');
     } catch (error: any) {
-      alert('Error al registrarse: ' + error.message);
+      showAlert('Error al registrarse: ' + error.message, 'error');
     }
   };
 
@@ -452,14 +571,18 @@ export default function App() {
   };
 
   const handleUpgradeRole = async () => {
-    if (!user) return;
+    if (!user) {
+      setView('login');
+      return;
+    }
     try {
       await updateDoc(doc(db, 'users', user.id.toString()), { role: 'producer' });
-      setUser({ ...user, role: 'producer' });
+      const updatedUser = { ...user, role: 'producer' as const };
+      setUser(updatedUser);
       setView('dashboard');
-      alert('¡Felicidades! Ahora tienes tu huerto habilitado.');
+      showAlert('¡Felicidades! Ahora tienes tu huerto habilitado.', 'success');
     } catch (e: any) {
-      alert('Error al actualizar rol: ' + e.message);
+      showAlert('Error al actualizar rol: ' + e.message, 'error');
     }
   };
 
@@ -473,14 +596,10 @@ export default function App() {
     });
   };
 
-  const removeFromCart = (id: number) => {
-    setItemToDelete(id);
-  };
-
-  const confirmRemoveFromCart = () => {
-    if (itemToDelete !== null) {
-      setCart(prev => prev.filter(item => item.id !== itemToDelete));
-      setItemToDelete(null);
+  const removeFromCart = async (id: number) => {
+    const confirmed = await showConfirm("¿Estás seguro de que quieres quitar este producto de tu carrito?", "¿Eliminar producto?");
+    if (confirmed) {
+      setCart(prev => prev.filter(item => item.id !== id));
     }
   };
 
@@ -523,7 +642,7 @@ export default function App() {
       setTimeout(() => setOrderSuccess(false), 5000);
     } catch (e) {
       console.error("Error order", e);
-      alert("Hubo un error al procesar tu pedido");
+      showAlert("Hubo un error al procesar tu pedido", 'error');
     }
   };
 
@@ -600,20 +719,31 @@ export default function App() {
                 )}
 
                 <div className="pt-8">
-                  <div className="sketch-card !p-6 flex flex-col sm:flex-row items-start sm:items-center gap-6 group hover:-translate-y-1 transition-transform cursor-pointer bg-white"
-                    onClick={() => { setView('producer-profile'); setSelectedProducerId(selectedProduct.producer_id); }}>
-                    <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-stone-800 bg-brand-sage/20 shrink-0 shadow-sm">
-                      <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${selectedProduct.producer_id}`} alt="Productor" className="w-full h-full object-cover" />
-                    </div>
-                    <div className="flex-grow space-y-2">
-                      <h3 className="font-serif font-bold text-2xl text-stone-800 leading-none">Conoce a quién lo cultiva</h3>
-                      <div>
-                        <span className="font-bold text-stone-800 block text-lg">{selectedProduct.producer_name || 'Don Jorge'}</span>
-                        <span className="text-sm text-stone-500 flex items-center gap-1"><MapPin size={14} /> Finca San Miguel, a 10 km de ti.</span>
+                  {(() => {
+                    const producer = producerCache[selectedProduct.producer_id.toString()];
+                    return (
+                      <div className="sketch-card !p-6 flex flex-col sm:flex-row items-start sm:items-center gap-6 group hover:-translate-y-1 transition-transform cursor-pointer bg-white"
+                        onClick={() => { setView('producer-profile'); setSelectedProducerId(selectedProduct.producer_id); }}>
+                        <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-stone-800 bg-brand-sage/20 shrink-0 shadow-sm">
+                          <img 
+                            src={producer?.image_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${selectedProduct.producer_id}`} 
+                            alt="Productor" 
+                            className="w-full h-full object-cover" 
+                          />
+                        </div>
+                        <div className="flex-grow space-y-2">
+                          <h3 className="font-serif font-bold text-2xl text-stone-800 leading-none">Conoce a quién lo cultiva</h3>
+                          <div>
+                            <span className="font-bold text-stone-800 block text-lg">{producer?.name || selectedProduct.producer_name || 'Productor Local'}</span>
+                            <span className="text-sm text-stone-500 flex items-center gap-1">
+                              <MapPin size={14} /> {producer?.location || selectedProduct.producer_location || 'Ubicación local'}
+                            </span>
+                          </div>
+                          <span className="text-brand-leaf font-bold text-sm underline inline-block pt-1">Ver perfil completo.</span>
+                        </div>
                       </div>
-                      <span className="text-brand-leaf font-bold text-sm underline inline-block pt-1">Ver perfil completo.</span>
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </div>
 
               </motion.div>
@@ -633,16 +763,26 @@ export default function App() {
                   <p className="text-xl text-stone-600 max-w-lg leading-relaxed">
                     Conectamos a pequeños productores con personas que buscan frescura, calidad y un impacto positivo en su comunidad.
                   </p>
-                  <div className="flex flex-wrap gap-4">
-                    <button onClick={() => setView('register')} className="sketch-button relative overflow-hidden group">
-                      <span className="relative z-10">Empezar a comprar</span>
-                      <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform"></div>
-                    </button>
-                    <button onClick={() => { setView('register'); }} className="sketch-button-outline relative overflow-hidden group">
-                      <span className="relative z-10">Soy productor</span>
-                      <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform"></div>
-                    </button>
-                  </div>
+                    <div className="flex flex-wrap gap-4">
+                      <button onClick={() => setView('market')} className="sketch-button relative overflow-hidden group">
+                        <span className="relative z-10">Empezar a comprar</span>
+                        <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform"></div>
+                      </button>
+                      <button 
+                        onClick={() => { 
+                          if (user) {
+                            if (user.role === 'producer') setView('dashboard');
+                            else handleUpgradeRole();
+                          } else {
+                            setView('register'); 
+                          }
+                        }} 
+                        className="sketch-button-outline relative overflow-hidden group"
+                      >
+                        <span className="relative z-10">{user?.role === 'producer' ? 'Mi Panel' : 'Soy productor'}</span>
+                        <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform"></div>
+                      </button>
+                    </div>
                 </motion.div>
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
@@ -658,6 +798,8 @@ export default function App() {
                         src={gifImg}
                         alt="DelHuerto Animación"
                         className="w-full h-full object-cover"
+                        loading="eager"
+                        fetchPriority="high"
                         referrerPolicy="no-referrer"
                       />
                     </div>
@@ -688,8 +830,15 @@ export default function App() {
                   </button>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                  {products.slice(0, 4).map(product => (
-                    <ProductCard key={product.id} product={product} onAddToCart={addToCart} onViewProducer={(id) => { setSelectedProducerId(id); setView('producer-profile'); }} onClickProduct={(p) => { setSelectedProduct(p); setView('product'); }} />
+                  {products.filter(p => p.isActive !== false).slice(0, 4).map(product => (
+                    <ProductCard 
+                      key={product.id} 
+                      product={product} 
+                      producerImage={producerCache[product.producer_id.toString()]?.image_url}
+                      onAddToCart={addToCart} 
+                      onViewProducer={(id) => { setSelectedProducerId(id); setView('producer-profile'); }} 
+                      onClickProduct={(p) => { setSelectedProduct(p); setView('product'); }} 
+                    />
                   ))}
                 </div>
               </section>
@@ -703,20 +852,20 @@ export default function App() {
               <p className="text-stone-500 mb-12 max-w-2xl mx-auto">
                 Trabajamos bajo los Objetivos de Desarrollo Sostenible para transformar la forma en que consumimos.
               </p>
-              <div className="flex flex-wrap justify-center gap-12">
-                <motion.div whileHover={{ y: -10 }} className="ods-circle">
-                  <ShoppingBasket size={40} className="text-amber-600 mb-2" />
-                  Soberanía Alimentaria
-                </motion.div>
-                <motion.div whileHover={{ y: -10 }} className="ods-circle">
-                  <CheckCircle2 size={40} className="text-green-600 mb-2" />
-                  Sostenibilidad Ambiental
-                </motion.div>
-                <motion.div whileHover={{ y: -10 }} className="ods-circle">
-                  <UserIcon size={40} className="text-blue-600 mb-2" />
-                  Reducción de Desigualdades
-                </motion.div>
-              </div>
+                <div className="flex flex-wrap gap-12 justify-center">
+                  <motion.div whileHover={{ y: -10 }} className="ods-circle cursor-pointer">
+                    <ShoppingBasket size={40} className="text-amber-600 mb-2" />
+                    Soberanía Alimentaria
+                  </motion.div>
+                  <motion.div whileHover={{ y: -10 }} className="ods-circle cursor-pointer">
+                    <CheckCircle2 size={40} className="text-green-600 mb-2" />
+                    Sostenibilidad Ambiental
+                  </motion.div>
+                  <motion.div whileHover={{ y: -10 }} className="ods-circle cursor-pointer">
+                    <UserIcon size={40} className="text-blue-600 mb-2" />
+                    Reducción de Desigualdades
+                  </motion.div>
+                </div>
             </div>
           </section>
 
@@ -737,7 +886,7 @@ export default function App() {
                 <motion.div
                   key={i}
                   whileHover={{ y: -10 }}
-                  className="sketch-card relative pt-16 bg-white"
+                  className="sketch-card relative pt-16 bg-white cursor-pointer"
                 >
                   <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 bg-brand-sage sketch-border flex items-center justify-center text-3xl font-bold shadow-lg">
                     {item.step}
@@ -763,7 +912,7 @@ export default function App() {
                 { label: "Familias Felices", value: "+500" },
                 { label: "Emisiones Reducidas", value: "30%" }
               ].map((stat, i) => (
-                <div key={i} className="sketch-card bg-brand-cream border-dashed text-center py-8">
+                <div key={i} className="sketch-card bg-brand-cream border-dashed text-center py-8 cursor-default">
                   <h3 className="text-4xl text-stone-800 font-serif font-black mb-1">{stat.value}</h3>
                   <p className="text-stone-500 font-bold uppercase tracking-widest text-[10px]">{stat.label}</p>
                 </div>
@@ -813,16 +962,16 @@ export default function App() {
                 </div>
                 <h2 className="text-5xl md:text-6xl font-serif font-bold leading-tight">Siembra tu futuro, <br /><span className="italic font-light">cosecha el cambio.</span></h2>
                 <p className="text-lg text-stone-400 max-w-md">Llega a más clientes, gestiona tus pedidos fácilmente o empieza a alimentarte mejor hoy. Nuestra red te está esperando.</p>
-                <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                  <button onClick={() => setView('market')} className="sketch-button bg-brand-leaf border-brand-leaf text-stone-900 hover:bg-white transition-colors">Ver el Mercado</button>
-                  <button onClick={() => { setView('register'); }} className="sketch-button-outline !text-white !border-white hover:!bg-white hover:!text-stone-900 transition-colors">Ver Catálogo</button>
+                <div className="flex flex-wrap gap-4 pt-4">
+                  <button onClick={() => setView('market')} className="sketch-button bg-brand-leaf border-brand-leaf text-stone-900 hover:bg-white transition-colors cursor-pointer">Ver el Mercado</button>
+                  <button onClick={() => { setView('register'); }} className="sketch-button-outline !text-white !border-white hover:!bg-white hover:!text-stone-900 transition-colors cursor-pointer">Ver Catálogo</button>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4 relative">
-                <div className="sketch-card overflow-hidden bg-brand-sage shrink-0 border-white rotate-2 p-2">
+                <div className="sketch-card overflow-hidden bg-brand-sage shrink-0 border-white rotate-2 p-2 cursor-pointer">
                   <img src={farmerImg} className="w-full aspect-[4/5] object-cover rounded-sm" alt="Granjero" />
                 </div>
-                <div className="sketch-card overflow-hidden bg-white shrink-0 -rotate-2 p-2 mt-8 border-stone-800">
+                <div className="sketch-card overflow-hidden bg-white shrink-0 -rotate-2 p-2 mt-8 border-stone-800 cursor-pointer">
                   <img src={familyImg} className="w-full aspect-[4/5] object-cover rounded-sm" alt="Familia" />
                 </div>
               </div>
@@ -891,7 +1040,14 @@ export default function App() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredProducts.map(product => (
-                  <ProductCard key={product.id} product={product} onAddToCart={addToCart} onViewProducer={(id) => { setSelectedProducerId(id); setView('producer-profile'); }} />
+                  <ProductCard 
+                    key={product.id} 
+                    product={product} 
+                    producerImage={producerCache[product.producer_id.toString()]?.image_url}
+                    onAddToCart={addToCart} 
+                    onViewProducer={(id) => { setSelectedProducerId(id); setView('producer-profile'); }} 
+                    onClickProduct={(p) => { setSelectedProduct(p); setView('product'); }}
+                  />
                 ))}
               </div>
               {filteredProducts.length === 0 && (
@@ -1344,29 +1500,29 @@ export default function App() {
 
     if (view === 'producer-profile') {
       const producerProducts = products.filter(p => p.producer_id === selectedProducerId);
-      const producerInfo: any = producerProducts[0] || {};
+      const producerInfo = producerCache[selectedProducerId?.toString() || ''] || (producerProducts[0] as any) || {};
 
       return (
         <main className="flex-grow max-w-7xl mx-auto w-full px-4 py-8 space-y-12">
-          <button onClick={() => setView('market')} className="text-stone-500 hover:text-stone-800 flex items-center gap-2 font-bold mb-4">
+          <button onClick={() => setView('market')} className="text-stone-500 hover:text-stone-800 flex items-center gap-2 font-bold mb-4 cursor-pointer">
             <ArrowLeft size={20} /> Volver al catálogo
           </button>
 
           {/* Cover Profile */}
           <div className="sketch-card bg-brand-sage/10 relative overflow-hidden p-8 md:p-16 flex flex-col md:flex-row items-center md:items-start gap-8">
             <div className="w-32 h-32 md:w-48 md:h-48 rounded-full border-4 border-white sketch-border overflow-hidden bg-white shrink-0">
-              <img src={`https://picsum.photos/seed/${selectedProducerId}/200/200`} alt="Productor" className="w-full h-full object-cover" />
+              <img src={producerInfo.image_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${selectedProducerId}`} alt="Productor" className="w-full h-full object-cover" />
             </div>
             <div className="space-y-4 text-center md:text-left z-10 w-full">
               <div>
-                <h1 className="text-4xl md:text-5xl font-serif font-bold text-stone-800">{producerInfo.producer_name || 'Productor'}</h1>
+                <h1 className="text-4xl md:text-5xl font-serif font-bold text-stone-800">{producerInfo.name || producerInfo.producer_name || 'Productor'}</h1>
                 <p className="text-brand-leaf font-bold mt-1 flex items-center justify-center md:justify-start gap-1">
-                  <MapPin size={16} /> {producerInfo.producer_location || 'Ubicación local'}
+                  <MapPin size={16} /> {producerInfo.location || producerInfo.producer_location || 'Ubicación local'}
                 </p>
               </div>
               <p className="text-stone-600 max-w-2xl text-lg relative bg-white/60 p-4 rounded-xl items-center border border-stone-800/10">
                 <span className="font-serif italic text-2xl text-stone-400 absolute -top-2 left-2">"</span>
-                Cultivamos con amor y respeto por la tierra. Nuestros productos son 100% orgánicos, asegurando el mejor sabor y nutrición para tu familia, directamente del campo a tu hogar.
+                {producerInfo.description || 'Cultivamos con amor y respeto por la tierra. Nuestros productos son 100% orgánicos, asegurando el mejor sabor y nutrición para tu familia, directamente del campo a tu hogar.'}
               </p>
             </div>
             {/* Background elements */}
@@ -1412,43 +1568,6 @@ export default function App() {
 
       <AnimatePresence>
 
-        {itemToDelete !== null && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setItemToDelete(null)}
-              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60]"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-sm bg-white z-[60] sketch-card p-8 space-y-6"
-            >
-              <div className="text-center space-y-2">
-                <h3 className="text-2xl font-bold text-stone-800">¿Eliminar producto?</h3>
-                <p className="text-stone-500">¿Estás seguro de que quieres quitar este producto de tu carrito?</p>
-              </div>
-              <div className="flex gap-4">
-                <button
-                  onClick={() => setItemToDelete(null)}
-                  className="flex-1 px-4 py-2 border-2 border-stone-800 font-bold hover:bg-stone-50 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={confirmRemoveFromCart}
-                  className="flex-1 px-4 py-2 bg-red-500 text-white border-2 border-stone-800 font-bold hover:bg-red-600 transition-colors shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
-                >
-                  Eliminar
-                </button>
-              </div>
-            </motion.div>
-          </>
-        )}
-
         {isCartOpen && (
           <>
             <motion.div
@@ -1478,10 +1597,10 @@ export default function App() {
                       <p className="text-xs text-stone-500">${item.price} x {item.quantity}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => updateCartQuantity(item.id, -1)} className="w-8 h-8 border-2 border-stone-800 rounded flex items-center justify-center font-bold">-</button>
+                      <button onClick={() => updateCartQuantity(item.id, -1)} className="w-8 h-8 border-2 border-stone-800 rounded flex items-center justify-center font-bold cursor-pointer">-</button>
                       <span className="text-sm font-bold w-4 text-center">{item.quantity}</span>
-                      <button onClick={() => updateCartQuantity(item.id, 1)} className="w-8 h-8 border-2 border-stone-800 rounded flex items-center justify-center font-bold">+</button>
-                      <button onClick={() => removeFromCart(item.id)} className="ml-2 text-red-500"><Trash2 size={18} /></button>
+                      <button onClick={() => updateCartQuantity(item.id, 1)} className="w-8 h-8 border-2 border-stone-800 rounded flex items-center justify-center font-bold cursor-pointer">+</button>
+                      <button onClick={() => removeFromCart(item.id)} className="ml-2 text-red-500 cursor-pointer"><Trash2 size={18} /></button>
                     </div>
                   </div>
                 ))}
@@ -1509,6 +1628,15 @@ export default function App() {
           </>
         )}
       </AnimatePresence>
+
+      <CustomModal
+        isOpen={modalConfig.isOpen}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        onConfirm={modalConfig.onConfirm}
+        onCancel={modalConfig.onCancel}
+      />
     </div>
   );
 }

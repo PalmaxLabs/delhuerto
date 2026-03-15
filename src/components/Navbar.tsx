@@ -69,14 +69,14 @@ export const Navbar = ({ user, onLogout, cartCount, onOpenCart, onMenuClick, set
                 {user ? (
                     <div className="flex items-center gap-3">
                         {user.role === 'producer' ? (
-                            <button className="relative p-2 text-stone-600 hover:bg-stone-100 rounded-full transition-colors" title="Notificaciones">
+                            <button className="relative p-2 text-stone-600 hover:bg-stone-100 rounded-full transition-colors cursor-pointer" title="Notificaciones">
                                 <ShoppingBasket size={22} />
                                 <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
                             </button>
                         ) : (
                             <button
                                 onClick={onOpenCart}
-                                className="relative p-2 text-stone-800 hover:bg-stone-100 rounded-full transition-colors"
+                                className="relative p-2 text-stone-800 hover:bg-stone-100 rounded-full transition-colors cursor-pointer"
                                 title="Carrito de compras"
                             >
                                 <ShoppingCart size={22} />
@@ -89,10 +89,10 @@ export const Navbar = ({ user, onLogout, cartCount, onOpenCart, onMenuClick, set
                         )}
 
                         <div className="relative group">
-                            <button className="flex items-center gap-2 p-1 pr-3 bg-white border-2 border-stone-800 rounded-full hover:bg-stone-50 transition-colors shadow-[2px_2px_0px_0px_rgba(41,37,36,0.3)]">
-                                <div className="w-8 h-8 rounded-full overflow-hidden bg-brand-sage/30 border border-stone-800/10">
-                                    <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${user.email}`} alt={user.name} className="w-full h-full object-cover" />
-                                </div>
+                            <button className="flex items-center gap-2 p-1 pr-3 bg-white border-2 border-stone-800 rounded-full hover:bg-stone-50 transition-colors shadow-[2px_2px_0px_0px_rgba(41,37,36,0.3)] cursor-pointer">
+                            <div className="w-8 h-8 rounded-full overflow-hidden bg-brand-sage/30 border border-stone-800/10">
+                                <img src={user.image_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${user.id}`} alt={user.name} className="w-full h-full object-cover" />
+                            </div>
                                 <div className="flex flex-col text-left">
                                     <span className="text-[10px] font-bold text-stone-400 leading-none uppercase tracking-widest">{user.role === 'producer' ? 'Huerto' : 'Comprador'}</span>
                                     <span className="text-xs font-bold text-stone-800 leading-tight truncate max-w-[100px]">{user.name.split(' ')[0]}</span>
@@ -104,10 +104,10 @@ export const Navbar = ({ user, onLogout, cartCount, onOpenCart, onMenuClick, set
                                     <p className="font-bold text-sm text-stone-800 truncate">{user.email}</p>
                                 </div>
                                 <div className="p-2 space-y-1">
-                                    <button onClick={() => setView(user.role === 'producer' ? 'dashboard' : 'orders')} className="w-full text-left px-3 py-2 text-sm font-bold text-stone-600 hover:bg-stone-100 hover:text-stone-800 rounded-lg transition-colors">
+                                    <button onClick={() => setView(user.role === 'producer' ? 'dashboard' : 'orders')} className="w-full text-left px-3 py-2 text-sm font-bold text-stone-600 hover:bg-stone-100 hover:text-stone-800 rounded-lg transition-colors cursor-pointer">
                                         {user.role === 'producer' ? 'Mi Panel' : 'Historial de compras'}
                                     </button>
-                                    <button onClick={onLogout} className="w-full flex items-center gap-2 px-3 py-2 text-sm font-bold text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                                    <button onClick={onLogout} className="w-full flex items-center gap-2 px-3 py-2 text-sm font-bold text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer">
                                         <LogOut size={16} /> Cerrar Sesión
                                     </button>
                                 </div>
@@ -116,8 +116,8 @@ export const Navbar = ({ user, onLogout, cartCount, onOpenCart, onMenuClick, set
                     </div>
                 ) : (
                     <div className="flex items-center gap-2">
-                        <button onClick={() => setView('login')} className="text-sm font-bold text-stone-600 px-4 py-2 hover:text-stone-800">Entrar</button>
-                        <button onClick={() => setView('register')} className="sketch-button !py-2 !px-6 !text-sm">Unirse</button>
+                        <button onClick={() => setView('login')} className="text-sm font-bold text-stone-600 px-4 py-2 hover:text-stone-800 cursor-pointer">Entrar</button>
+                        <button onClick={() => setView('register')} className="sketch-button !py-2 !px-6 !text-sm cursor-pointer">Unirse</button>
                     </div>
                 )}
             </div>

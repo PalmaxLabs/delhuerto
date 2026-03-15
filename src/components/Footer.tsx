@@ -24,17 +24,17 @@ export const Footer = ({ setView }: FooterProps) => (
             <div>
                 <h4 className="font-bold mb-6 text-lg">Plataforma</h4>
                 <ul className="space-y-4 text-stone-400">
-                    <li><button onClick={() => setView('landing')} className="hover:text-brand-leaf">Inicio</button></li>
-                    <li><button onClick={() => setView('login')} className="hover:text-brand-leaf">Mercado</button></li>
-                    <li><button onClick={() => setView('register')} className="hover:text-brand-leaf">Registrarse</button></li>
+                    <li><button onClick={() => setView('landing')} className="hover:text-brand-leaf cursor-pointer">Inicio</button></li>
+                    <li><button onClick={() => setView('login')} className="hover:text-brand-leaf cursor-pointer">Mercado</button></li>
+                    <li><button onClick={() => setView('register')} className="hover:text-brand-leaf cursor-pointer">Registrarse</button></li>
                 </ul>
             </div>
             <div>
                 <h4 className="font-bold mb-6 text-lg">Comunidad</h4>
                 <ul className="space-y-4 text-stone-400">
-                    <li><a href="#" className="hover:text-brand-leaf">Productores</a></li>
-                    <li><a href="#" className="hover:text-brand-leaf">Historias</a></li>
-                    <li><a href="#" className="hover:text-brand-leaf">ODS</a></li>
+                    <li><a href="#" className="hover:text-brand-leaf cursor-pointer">Productores</a></li>
+                    <li><a href="#" className="hover:text-brand-leaf cursor-pointer">Historias</a></li>
+                    <li><a href="#" className="hover:text-brand-leaf cursor-pointer">ODS</a></li>
                 </ul>
             </div>
             <div>
@@ -50,8 +50,8 @@ export const Footer = ({ setView }: FooterProps) => (
         <div className="max-w-7xl mx-auto border-t border-stone-800 mt-16 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-stone-500 text-sm relative z-10">
             <span>© 2026 DelHuerto. Todos los derechos reservados.</span>
             <div className="flex gap-6">
-                <a href="#" className="hover:text-white">Privacidad</a>
-                <a href="#" className="hover:text-white">Términos</a>
+                <a href="#" className="hover:text-white cursor-pointer">Privacidad</a>
+                <a href="#" className="hover:text-white cursor-pointer">Términos</a>
             </div>
         </div>
 

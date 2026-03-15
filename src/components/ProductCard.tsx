@@ -5,13 +5,14 @@ import { Product } from '../types';
 
 interface ProductCardProps {
     product: Product;
+    producerImage?: string;
     onAddToCart?: (p: Product) => void;
     onViewProducer?: (id: string | number) => void;
     onClickProduct?: (p: Product) => void;
     isProducer?: boolean;
 }
 
-export const ProductCard = ({ product, onAddToCart, onViewProducer, onClickProduct, isProducer }: ProductCardProps) => (
+export const ProductCard = ({ product, producerImage, onAddToCart, onViewProducer, onClickProduct, isProducer }: ProductCardProps) => (
     <motion.div
         layout
         whileHover={{ y: -5 }}
@@ -22,6 +23,7 @@ export const ProductCard = ({ product, onAddToCart, onViewProducer, onClickProdu
             <img
                 src={product.image_url || `https://picsum.photos/seed/${product.id}/400/400`}
                 alt={product.name}
+                loading="lazy"
                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                 referrerPolicy="no-referrer"
             />
@@ -35,14 +37,21 @@ export const ProductCard = ({ product, onAddToCart, onViewProducer, onClickProdu
             </div>
             <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">{product.category}</span>
             {product.producer_name && !isProducer && (
-                <span
+                <div
                     onClick={(e) => {
                         e.stopPropagation();
                         if (onViewProducer) onViewProducer(product.producer_id);
                     }}
-                    className="text-xs text-stone-500 font-bold hover:text-brand-leaf hover:underline cursor-pointer flex items-center gap-1 mt-1 block mb-1">
-                    <Store size={12} className="inline opacity-50" /> {product.producer_name}
-                </span>
+                    className="text-xs text-stone-500 font-bold hover:text-brand-leaf hover:underline cursor-pointer flex items-center gap-2 mt-1 block mb-1">
+                    <div className="w-6 h-6 rounded-full overflow-hidden border border-stone-800/20 bg-stone-100">
+                        <img 
+                            src={producerImage || `https://api.dicebear.com/7.x/notionists/svg?seed=${product.producer_id}`} 
+                            alt={product.producer_name} 
+                            className="w-full h-full object-cover" 
+                        />
+                    </div>
+                    <span>{product.producer_name}</span>
+                </div>
             )}
             <p className="text-xs text-stone-500 line-clamp-2 mt-2 leading-relaxed opacity-0 hidden group-hover:opacity-100 group-hover:block transition-all">{product.description}</p>
         </div>
