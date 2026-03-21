@@ -56,7 +56,7 @@ async function createServer() {
       }
 
       const { html: appHtml } = await render(url)
-      const html = template.replace(`<!--app-html-->`, appHtml)
+      const html = template.replace(`%APP_HTML%`, appHtml)
       res.status(200).set({ 'Content-Type': 'text/html' }).end(html)
     } catch (e) {
       if (!isProd && vite) {

@@ -27,7 +27,6 @@ export const CustomModal: React.FC<CustomModalProps> = ({
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -36,14 +35,12 @@ export const CustomModal: React.FC<CustomModalProps> = ({
             className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm"
           />
 
-          {/* Modal Card */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9, y: 20, rotate: -1 }}
             animate={{ opacity: 1, scale: 1, y: 0, rotate: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20, rotate: 1 }}
             className="relative w-full max-w-md bg-white p-8 sketch-card z-10"
           >
-            {/* Close Button */}
             <button
               onClick={onCancel || onConfirm}
               className="absolute top-4 right-4 p-1 text-stone-400 hover:text-stone-800 transition-colors"
@@ -52,7 +49,6 @@ export const CustomModal: React.FC<CustomModalProps> = ({
             </button>
 
             <div className="flex flex-col items-center text-center space-y-4">
-              {/* Icon Based on Type */}
               <div className={`p-3 rounded-full border-2 border-stone-800 ${
                 type === 'error' ? 'bg-red-50 text-red-600' :
                 type === 'success' ? 'bg-green-50 text-green-600' :

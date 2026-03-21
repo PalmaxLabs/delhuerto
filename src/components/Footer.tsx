@@ -25,7 +25,7 @@ export const Footer = ({ setView }: FooterProps) => (
                 <h4 className="font-bold mb-6 text-lg">Plataforma</h4>
                 <ul className="space-y-4 text-stone-400">
                     <li><button onClick={() => setView('landing')} className="hover:text-brand-leaf cursor-pointer">Inicio</button></li>
-                    <li><button onClick={() => setView('login')} className="hover:text-brand-leaf cursor-pointer">Mercado</button></li>
+                    <li><button onClick={() => setView('market')} className="hover:text-brand-leaf cursor-pointer">Mercado</button></li>
                     <li><button onClick={() => setView('register')} className="hover:text-brand-leaf cursor-pointer">Registrarse</button></li>
                 </ul>
             </div>
@@ -54,8 +54,6 @@ export const Footer = ({ setView }: FooterProps) => (
                 <a href="#" className="hover:text-white cursor-pointer">Términos</a>
             </div>
         </div>
-
-        {/* Large background text */}
         <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-full text-center pointer-events-none select-none opacity-[0.03]">
             <h2 className="text-[15vw] font-serif font-bold whitespace-nowrap leading-none">
                 DelHuerto
