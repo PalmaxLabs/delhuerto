@@ -2,7 +2,7 @@ import { renderToString } from 'react-dom/server'
 import { StrictMode } from 'react'
 import App from './App'
 
-export function render() {
+export function render(_url?: string) {
   const html = renderToString(
     <StrictMode>
       <App />
