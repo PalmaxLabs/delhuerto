@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: vanilla-delhuerto
+          path: .
 
   deploy:
     needs: build
