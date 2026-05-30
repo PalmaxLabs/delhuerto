@@ -1047,6 +1047,7 @@ export default function App() {
                     onAddToCart={addToCart} 
                     onViewProducer={(id) => { setSelectedProducerId(id); setView('producer-profile'); }} 
                     onClickProduct={(p) => { setSelectedProduct(p); setView('product'); }}
+                    isProducer={user?.role === 'producer'}
                   />
                 ))}
               </div>

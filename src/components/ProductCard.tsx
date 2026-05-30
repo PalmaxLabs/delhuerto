@@ -63,7 +63,7 @@ export const ProductCard = ({ product, producerImage, onAddToCart, onViewProduce
                 }}
                 className="sketch-button !py-2.5 !text-sm w-full mt-auto"
             >
-                Comprar / Simular
+                Comprar
             </button>
         )}
     </motion.div>
