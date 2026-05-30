@@ -69,10 +69,24 @@ export const Navbar = ({ user, onLogout, cartCount, onOpenCart, onMenuClick, set
                 {user ? (
                     <div className="flex items-center gap-3">
                         {user.role === 'producer' ? (
-                            <button className="relative p-2 text-stone-600 hover:bg-stone-100 rounded-full transition-colors cursor-pointer" title="Notificaciones">
-                                <ShoppingBasket size={22} />
-                                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
-                            </button>
+                            <>
+                                <button className="relative p-2 text-stone-600 hover:bg-stone-100 rounded-full transition-colors cursor-pointer" title="Notificaciones">
+                                    <ShoppingBasket size={22} />
+                                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
+                                </button>
+                                <button
+                                    onClick={onOpenCart}
+                                    className="relative p-2 text-stone-800 hover:bg-stone-100 rounded-full transition-colors cursor-pointer"
+                                    title="Carrito de compras"
+                                >
+                                    <ShoppingCart size={22} />
+                                    {cartCount > 0 && (
+                                        <span className="absolute top-0 right-0 bg-amber-400 border-2 border-stone-800 text-stone-800 text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full">
+                                            {cartCount}
+                                        </span>
+                                    )}
+                                </button>
+                            </>
                         ) : (
                             <button
                                 onClick={onOpenCart}
