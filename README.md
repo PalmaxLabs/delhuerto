@@ -77,6 +77,30 @@ graph TD
 - [ ] **App Móvil**: Versión nativa para productores en el campo.
 - [ ] **Panel de Administración**: Analíticas de ventas e impacto para el productor.
 
+## ♿ Accesibilidad (WCAG 2.2)
+
+> *"Creemos firmemente que la conexión entre el campo y la ciudad debe estar al alcance de **todas** las personas, sin importar sus capacidades tecnológicas o físicas."*
+
+En **DelHuerto** estamos comprometidos con la inclusión digital. Nuestro desarrollo está guiado por las pautas de accesibilidad **WCAG 2.2**, garantizando una experiencia de usuario cómoda, intuitiva y equitativa.
+
+### 🌟 Estándares Implementados
+
+A continuación, destacamos los principios clave que ya forman parte de nuestra arquitectura:
+
+| Principio | Criterio (WCAG) | Cómo lo logramos | Impacto en el Usuario |
+| :--- | :--- | :--- | :--- |
+| **👁️ Perceptible** | **Alternativas de Texto (1.1.1)** | Todas las imágenes críticas cuentan con el atributo `alt` descriptivo. | Quienes usan lectores de pantalla pueden "ver" y entender nuestro contenido visual. |
+| **👁️ Perceptible** | **Estructura Semántica (1.3.1)** | Construido con HTML5 estricto (`<main>`, `<nav>`, `<h1>`-`<h4>`). | Facilita la navegación rápida y estructurada por el flujo de la página. |
+| **👁️ Perceptible** | **Adaptabilidad Continua (1.4.10)** | Interfaz 100% *responsive* / *reflow* impulsada por Tailwind CSS. | Experiencia perfecta desde cualquier dispositivo sin importar el zoom. |
+| **🧠 Comprensible** | **Idioma del Documento (3.1.1)** | Definición nativa del idioma base de la plataforma en la etiqueta `<html lang>`. | Las herramientas de asistencia pronuncian el texto con el acento y reglas correctas. |
+| **🧠 Comprensible** | **Etiquetas Claras (3.3.2)** | Integración nativa de la etiqueta `<label>` en formularios e inputs. | Minimiza errores cognitivos al registrarse o completar un pedido. |
+
+### 🚀 Próximos Pasos (Roadmap A11y)
+Nuestro camino hacia la accesibilidad total no se detiene aquí. Nuestras próximas iteraciones apuntan al nivel **AA**, incluyendo:
+- ⌨️ Navegación completa por teclado (*Skip-links* y *Focus indicators*).
+- 🔊 Reducción de movimiento (*prefers-reduced-motion*) para usuarios sensibles.
+- 🏷️ Enriquecimiento de componentes dinámicos con **Aria Roles**.
+
 ## 📧 Contacto
 - **Email**: [hola@delhuerto.com](mailto:hola@delhuerto.com)
 - **Ubicación**: Cali, Colombia 🇨🇴
